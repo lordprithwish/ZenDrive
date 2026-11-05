@@ -58,8 +58,10 @@ passport.use(
         const existing = await prisma.user.findUnique({ where: { googleId: profile.id } })
         if (existing) {
           // Mirror once; later logins reuse our copy instead of hitting Google
-          // again (repeat fetches are what get the link blocked).
-          if (!existing.avatarKey) {
+          // again (repeat fetches are what get the link blocked). Only for
+          // users still holding the old raw Google URL — someone who removed
+          // their photo (avatarUrl null) must not get it re-imported.
+          if (existing.avatarUrl && !existing.avatarKey) {
             await mirrorGoogleAvatar(existing.id, photo)
             return done(null, (await prisma.user.findUnique({ where: { id: existing.id } })) ?? existing)
           }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { ScrollArea } from "@workspace/ui/components/scroll-area"
 import {
   CloudIcon,
@@ -6,6 +6,7 @@ import {
   DeviceMobileIcon,
   FilesIcon,
   LightningIcon,
+  PencilSimpleIcon,
   SignInIcon,
   TelegramLogoIcon,
   TrashIcon,
@@ -36,7 +37,7 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { PopConfirm } from "@workspace/ui/components/popconfirm"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
-import { apiGet, apiJson } from "@/lib/api"
+import { apiGet, apiJson, apiUpload } from "@/lib/api"
 import { formatBytes, formatDate, relativeTime } from "@/lib/format"
 import { toast } from "@/store/toast"
 import { useAuth } from "@/store/auth"
@@ -104,7 +105,7 @@ export function ProfilePage() {
             ) : err ? (
               <div className="text-destructive text-sm">{err}</div>
             ) : data ? (
-              <Overview data={data} />
+              <Overview data={data} onChange={load} />
             ) : null}
           </div>
         </ScrollArea>
@@ -113,27 +114,131 @@ export function ProfilePage() {
   )
 }
 
-function Overview({ data }: { data: UserDetail }) {
+function Overview({ data, onChange }: { data: UserDetail; onChange: () => void }) {
   const u = data.user
   const s = data.storage
   const a = data.activity
   // A temp session can't manage devices, Telegram or other temp sessions
   // (the API 403s them), so the tab would just be a wall of errors.
   const isTemp = useAuth((st) => !!st.user?.tempSessionExpiresAt)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(u.name)
+  const [busy, setBusy] = useState(false)
+
+  // The sidebar reads the signed-in user from the auth store, not from this
+  // page's data, so keep both in step.
+  const sync = (patch: { name?: string; avatarUrl?: string | null }) => {
+    useAuth.setState((st) => (st.user ? { user: { ...st.user, ...patch } } : st))
+    onChange()
+  }
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true)
+    try {
+      await fn()
+    } catch (e) {
+      const m = e instanceof Error ? e.message : ""
+      toast.error(
+        m === "too_large" ? "Image must be under 2 MB"
+        : m === "only_jpeg_png_webp" ? "Use a JPEG, PNG or WebP image"
+        : "Couldn't save changes"
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+  const upload = (f: File) =>
+    run(async () => {
+      const form = new FormData()
+      form.append("avatar", f)
+      sync({ avatarUrl: (await apiUpload<{ avatarUrl: string }>("/api/me/avatar", form)).avatarUrl })
+    })
+  const removePhoto = () =>
+    run(async () => {
+      await apiJson("/api/me/avatar", "DELETE")
+      sync({ avatarUrl: null })
+    })
+  const saveName = () =>
+    run(async () => {
+      const r = await apiJson<{ name: string }>("/api/me/profile", "PATCH", { name })
+      setEditing(false)
+      sync({ name: r.name })
+    })
 
   return (
     <div className="flex flex-col gap-4">
       {/* Identity — same shape as the admin user drawer's header. */}
       <div className="bg-card flex flex-wrap items-center gap-3 rounded-lg border p-4">
-        <Avatar className="h-12 w-12 shrink-0">
-          {u.avatarUrl && <AvatarImage src={u.avatarUrl} alt="" />}
-          <AvatarFallback className="text-base">
-            {u.name[0]?.toUpperCase() ?? "?"}
-          </AvatarFallback>
-        </Avatar>
+        <div className="flex shrink-0 flex-col items-center gap-1">
+          <button
+            type="button"
+            disabled={isTemp || busy}
+            onClick={() => fileRef.current?.click()}
+            title={isTemp ? undefined : "Change photo"}
+            className="rounded-full disabled:cursor-default"
+          >
+            <Avatar className="h-16 w-16">
+              {u.avatarUrl && <AvatarImage src={u.avatarUrl} alt="" />}
+              <AvatarFallback className="text-xl">
+                {u.name[0]?.toUpperCase() ?? "?"}
+              </AvatarFallback>
+            </Avatar>
+          </button>
+          {!isTemp && (
+            <div className="flex gap-2 text-xs">
+              <button className="text-primary hover:underline" disabled={busy} onClick={() => fileRef.current?.click()}>
+                {u.avatarUrl ? "Change" : "Add photo"}
+              </button>
+              {u.avatarUrl && (
+                <button className="text-muted-foreground hover:underline" disabled={busy} onClick={removePhoto}>
+                  Remove
+                </button>
+              )}
+            </div>
+          )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              e.target.value = ""
+              if (f) void upload(f)
+            }}
+          />
+        </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="truncate text-lg font-semibold">{u.name}</span>
+            {editing ? (
+              <form
+                className="flex items-center gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  void saveName()
+                }}
+              >
+                <Input value={name} maxLength={80} autoFocus onChange={(e) => setName(e.target.value)} className="h-8 w-56" />
+                <Button type="submit" size="sm" disabled={busy || !name.trim()}>Save</Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+              </form>
+            ) : (
+              <>
+                <span className="truncate text-lg font-semibold">{u.name}</span>
+                {!isTemp && (
+                  <button
+                    title="Edit name"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setName(u.name)
+                      setEditing(true)
+                    }}
+                  >
+                    <PencilSimpleIcon size={14} />
+                  </button>
+                )}
+              </>
+            )}
             <Badge variant={u.role === "ADMIN" ? "default" : "muted"}>{u.role}</Badge>
             {u.upgradeRequestedAt && <Badge variant="default">upgrade requested</Badge>}
           </div>

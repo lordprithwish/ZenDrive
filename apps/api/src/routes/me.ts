@@ -1,9 +1,11 @@
 import { Router } from "express"
 import { z } from "zod"
 import { prisma } from "../db/prisma.js"
-import { currentUser, requireAuth } from "../middleware/auth.js"
+import { currentUser, denyTempSession, requireAuth } from "../middleware/auth.js"
 import { fileCategory, type FileCategory } from "../lib/fileType.js"
 import { buildUserDetail } from "../lib/userDetail.js"
+import { AVATAR_EXT, clearAvatar, saveAvatar } from "../lib/avatar.js"
+import multer from "multer"
 
 declare module "express-session" {
   interface SessionData {
@@ -20,6 +22,43 @@ meRouter.get("/detail", async (req, res) => {
   const data = await buildUserDetail(currentUser(req).id)
   if (!data) return res.status(404).json({ error: "not_found" })
   res.json(data)
+})
+
+// Edit-your-profile. Temp sessions are borrowed devices — they can't change
+// who the account is.
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+})
+
+meRouter.patch("/profile", denyTempSession, async (req, res) => {
+  const body = z.object({ name: z.string().trim().min(1).max(80) }).safeParse(req.body)
+  if (!body.success) return res.status(400).json({ error: "invalid" })
+  const u = await prisma.user.update({
+    where: { id: currentUser(req).id },
+    data: { name: body.data.name },
+    select: { name: true },
+  })
+  res.json(u)
+})
+
+meRouter.post("/avatar", denyTempSession, (req, res) => {
+  avatarUpload.single("avatar")(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.code === "LIMIT_FILE_SIZE" ? "too_large" : "upload_failed" })
+    const ext = AVATAR_EXT[req.file?.mimetype ?? ""]
+    if (!req.file || !ext) return res.status(400).json({ error: "only_jpeg_png_webp" })
+    try {
+      res.json({ avatarUrl: await saveAvatar(currentUser(req).id, req.file.buffer, ext) })
+    } catch (e) {
+      console.error("[avatar] upload failed:", e)
+      res.status(500).json({ error: "save_failed" })
+    }
+  })
+})
+
+meRouter.delete("/avatar", denyTempSession, async (req, res) => {
+  await clearAvatar(currentUser(req).id)
+  res.json({ ok: true })
 })
 
 meRouter.get("/quota", async (req, res) => {

@@ -9,6 +9,7 @@ const EXT: Record<string, string> = {
   "image/png": ".png",
   "image/webp": ".webp",
 }
+export const AVATAR_EXT = EXT
 export const AVATAR_MIME: Record<string, string> = {
   ".jpg": "image/jpeg",
   ".png": "image/png",
@@ -22,7 +23,6 @@ export const AVATAR_MIME: Record<string, string> = {
 // block a login, and the user just keeps whatever avatar they had.
 export async function mirrorGoogleAvatar(userId: string, googleUrl?: string | null): Promise<void> {
   if (!googleUrl) return
-  const tmp = newScratchPath()
   try {
     const src = new URL(googleUrl)
     // The URL comes from Google's profile, but stay strict: this is a
@@ -37,23 +37,35 @@ export async function mirrorGoogleAvatar(userId: string, googleUrl?: string | nu
     const buf = Buffer.from(await res.arrayBuffer())
     if (buf.length === 0 || buf.length > MAX_BYTES) return
 
+    await saveAvatar(userId, buf, ext)
+  } catch (err) {
+    console.error("[avatar] mirror failed:", err)
+  }
+}
+
+// Stores `buf` as the user's avatar (replacing any previous one) and points
+// avatarUrl at the route that serves it. Shared by the Google import above
+// and the profile page's upload.
+export async function saveAvatar(userId: string, buf: Buffer, ext: string): Promise<string> {
+  const tmp = newScratchPath()
+  try {
     await fs.writeFile(tmp, buf)
     const key = newStorageKey(`avatar${ext}`)
     await storage.putFile(key, tmp)
 
     const old = await prisma.user.findUnique({ where: { id: userId }, select: { avatarKey: true } })
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        avatarKey: key,
-        // ?v busts browser caches when the picture changes (route is immutable-cached).
-        avatarUrl: `${env.APP_URL.replace(/\/$/, "")}/api/auth/avatar/${userId}?v=${Date.now()}`,
-      },
-    })
+    // ?v busts browser caches when the picture changes (route is immutable-cached).
+    const avatarUrl = `${env.APP_URL.replace(/\/$/, "")}/api/auth/avatar/${userId}?v=${Date.now()}`
+    await prisma.user.update({ where: { id: userId }, data: { avatarKey: key, avatarUrl } })
     if (old?.avatarKey) await storage.remove(old.avatarKey).catch(() => {})
-  } catch (err) {
-    console.error("[avatar] mirror failed:", err)
+    return avatarUrl
   } finally {
     await fs.rm(tmp, { force: true })
   }
+}
+
+export async function clearAvatar(userId: string): Promise<void> {
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { avatarKey: true } })
+  await prisma.user.update({ where: { id: userId }, data: { avatarKey: null, avatarUrl: null } })
+  if (u?.avatarKey) await storage.remove(u.avatarKey).catch(() => {})
 }
