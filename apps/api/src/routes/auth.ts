@@ -1,4 +1,7 @@
+import path from "node:path"
 import { Router } from "express"
+import { AVATAR_MIME } from "../lib/avatar.js"
+import { storage } from "../storage/index.js"
 import { z } from "zod"
 import { passport } from "../auth/passport.js"
 import { env } from "../env.js"
@@ -117,6 +120,22 @@ authRouter.post("/logout", (req, res) => {
       res.json({ ok: true })
     })
   })
+})
+
+// Public on purpose: avatars show up in <img> tags for other members of a
+// space/share and on cross-origin frontends. The URL carries ?v=<timestamp>,
+// so it is safe to cache forever.
+authRouter.get("/avatar/:id", async (req, res) => {
+  const u = await prisma.user.findUnique({
+    where: { id: req.params.id },
+    select: { avatarKey: true },
+  })
+  const s = u?.avatarKey ? await storage.readStream(u.avatarKey) : null
+  if (!u?.avatarKey || !s) return res.status(404).end()
+  res.setHeader("Content-Type", AVATAR_MIME[path.extname(u.avatarKey)] ?? "image/jpeg")
+  res.setHeader("Content-Length", s.size)
+  res.setHeader("Cache-Control", "public, max-age=31536000, immutable")
+  s.stream.pipe(res)
 })
 
 authRouter.get("/me", requireAuth, async (req, res) => {

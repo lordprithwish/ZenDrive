@@ -26,6 +26,9 @@ model User {
   email     String   @unique
   name      String
   avatarUrl String?
+  // Storage key of our own copy of the avatar (see lib/avatar.ts); avatarUrl
+  // points at the route that serves it.
+  avatarKey String?
   createdAt DateTime @default(now())
 
   role                  UserRole  @default(USER)

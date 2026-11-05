@@ -2,6 +2,7 @@ import passport from "passport"
 import { Strategy as GoogleStrategy } from "passport-google-oauth20"
 import { prisma } from "../db/prisma.js"
 import { env } from "../env.js"
+import { mirrorGoogleAvatar } from "../lib/avatar.js"
 
 // Temp-session logins (routes/tempSessions.ts) serialize as {id, t} instead
 // of a bare id, so deserializeUser knows to re-check that session's row.
@@ -53,8 +54,17 @@ passport.use(
         const email = profile.emails?.[0]?.value
         if (!email) return done(new Error("No email on Google profile"))
 
+        const photo = profile.photos?.[0]?.value
         const existing = await prisma.user.findUnique({ where: { googleId: profile.id } })
-        if (existing) return done(null, existing)
+        if (existing) {
+          // Mirror once; later logins reuse our copy instead of hitting Google
+          // again (repeat fetches are what get the link blocked).
+          if (!existing.avatarKey) {
+            await mirrorGoogleAvatar(existing.id, photo)
+            return done(null, (await prisma.user.findUnique({ where: { id: existing.id } })) ?? existing)
+          }
+          return done(null, existing)
+        }
 
         const user = await prisma.$transaction(async (tx) => {
           // First-ever user bootstraps as ADMIN so there's no SQL-only escape hatch.
@@ -64,7 +74,6 @@ passport.use(
               googleId: profile.id,
               email,
               name: profile.displayName || email,
-              avatarUrl: profile.photos?.[0]?.value,
               role: isFirst ? "ADMIN" : "USER",
             },
           })
@@ -74,7 +83,8 @@ passport.use(
           return tx.user.update({ where: { id: u.id }, data: { rootFolderId: root.id } })
         })
 
-        done(null, user)
+        await mirrorGoogleAvatar(user.id, photo)
+        done(null, (await prisma.user.findUnique({ where: { id: user.id } })) ?? user)
       } catch (e) {
         done(e as Error)
       }
