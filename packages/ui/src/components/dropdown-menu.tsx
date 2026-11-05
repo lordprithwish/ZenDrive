@@ -33,7 +33,10 @@ function DropdownMenuContent({
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"
           className={cn(
-            "bg-popover text-popover-foreground data-ending-style:opacity-0 data-starting-style:opacity-0 z-50 min-w-40 overflow-hidden rounded-md border p-1 shadow-md outline-none transition-opacity",
+            "bg-popover text-popover-foreground z-50 min-w-40 overflow-hidden rounded-xl border p-1 shadow-xl shadow-black/10 outline-none dark:shadow-black/40",
+            // Same motion as Popover. A context menu's anchor is the click
+            // point, so it opens out from under the cursor.
+            "origin-(--transform-origin) transition-[opacity,scale] duration-150 ease-out-soft data-starting-style:scale-96 data-starting-style:opacity-0 data-ending-style:scale-98 data-ending-style:opacity-0 data-ending-style:duration-100",
             className
           )}
           {...props}
@@ -52,7 +55,7 @@ function DropdownMenuItem({
     <MenuPrimitive.Item
       data-slot="dropdown-menu-item"
       className={cn(
-        "hover:bg-accent hover:text-accent-foreground data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors",
+        "hover:bg-accent hover:text-accent-foreground data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 relative flex cursor-default select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none transition-colors duration-100",
         inset && "pl-8",
         className
       )}
@@ -71,7 +74,7 @@ function DropdownMenuCheckboxItem({
     <MenuPrimitive.Item
       data-slot="dropdown-menu-check-item"
       className={cn(
-        "hover:bg-accent data-highlighted:bg-accent relative flex cursor-default select-none items-center gap-2 rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none",
+        "hover:bg-accent data-highlighted:bg-accent relative flex cursor-default select-none items-center gap-2 rounded-md py-1.5 pl-8 pr-2 text-sm outline-none transition-colors duration-100",
         className
       )}
       {...props}

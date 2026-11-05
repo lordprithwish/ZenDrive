@@ -21,7 +21,9 @@ export function HoverName({
   // this would sit on its corner.
   const [open, setOpen] = useState(false)
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    // Hover only. A click on the name is the row's (select, open, pick a
+    // folder); opened by it, the popover would stay pinned after the row scrolls.
+    <Popover open={open} onOpenChange={(o, d) => setOpen(o && d.reason !== "trigger-press")}>
       <PopoverTrigger
         nativeButton={false}
         openOnHover
@@ -32,7 +34,7 @@ export function HoverName({
       </PopoverTrigger>
       <PopoverContent
         positionerClassName="z-80"
-        className="w-auto max-w-xs px-3 py-1.5 text-sm wrap-break-word"
+        className="w-auto max-w-xs rounded-lg px-3 py-1.5 text-sm wrap-break-word"
       >
         {name}
       </PopoverContent>

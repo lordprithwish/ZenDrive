@@ -35,7 +35,7 @@ function SheetContent({
       <DialogPrimitive.Popup
         data-slot="sheet-content"
         className={cn(
-          "bg-background fixed z-50 flex flex-col gap-0 shadow-xl outline-none duration-200 data-open:animate-in data-closed:animate-out",
+          "bg-background fixed z-50 flex flex-col gap-0 shadow-xl outline-none duration-300 ease-out-soft data-open:animate-in data-closed:animate-out data-closed:duration-200 data-closed:ease-in",
           side === "right" &&
             "data-open:slide-in-from-right data-closed:slide-out-to-right inset-y-0 right-0 h-full w-full border-l sm:max-w-sm",
           side === "left" &&

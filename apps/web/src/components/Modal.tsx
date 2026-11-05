@@ -63,10 +63,19 @@ export function Modal({
         showCloseButton={showCloseButton}
         className={cn("flex flex-col gap-0 overflow-hidden p-0", SIZES[size], className)}
       >
+        {/* A breath of the brand colour behind the title: every dialog reads
+            as DarkDrive's own without anything competing with the content. */}
         <DialogHeader
-          className={cn("flex-row items-start gap-3 p-4 pr-12", children != null && "border-b")}
+          className={cn(
+            "from-primary/6 flex-row items-start gap-3 bg-linear-to-b to-transparent p-4 pr-12",
+            children != null && "border-b"
+          )}
         >
-          {icon && <div className="mt-px shrink-0">{icon}</div>}
+          {icon && (
+            <div className="bg-muted ring-border/60 grid shrink-0 place-items-center rounded-xl p-2 ring-1">
+              {icon}
+            </div>
+          )}
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             <DialogTitle className="leading-snug">{title}</DialogTitle>
             {description && <DialogDescription>{description}</DialogDescription>}
@@ -82,7 +91,7 @@ export function Modal({
           )
         )}
         {footer && (
-          <DialogFooter className="flex-row flex-wrap items-center justify-end border-t p-3">
+          <DialogFooter className="bg-muted/40 flex-row flex-wrap items-center justify-end border-t p-3">
             {footer}
           </DialogFooter>
         )}

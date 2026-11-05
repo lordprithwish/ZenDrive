@@ -502,7 +502,7 @@ export function FilePreview({
   const full = compact || cinema
   return (
     <div
-      className={`fixed inset-0 z-50 flex ${
+      className={`animate-in fade-in-0 fixed inset-0 z-50 flex duration-200 motion-reduce:animate-none ${
         full ? "" : "items-center justify-center bg-black/70 p-4 backdrop-blur-md"
       }`}
       onClick={onClose}
@@ -516,7 +516,7 @@ export function FilePreview({
         className={`relative flex outline-none ${
           full
             ? `h-full w-full flex-col ${cinema ? "bg-black" : "bg-background"}`
-            : `gap-3 transition-[width,height,max-width,max-height] duration-300 ${
+            : `animate-in zoom-in-97 ease-out-soft gap-3 transition-[width,height,max-width,max-height] duration-300 motion-reduce:animate-none ${
                 pdfFocusMode
                   ? "h-[94vh] w-[96vw]"
                   : "max-h-[90vh] max-w-[95vw]"
@@ -673,7 +673,7 @@ export function FilePreview({
         {compact && showInfo && (
           <>
             <div
-              className="fixed inset-0 z-60 bg-black/40"
+              className="animate-in fade-in-0 fixed inset-0 z-60 bg-black/40 duration-200 motion-reduce:animate-none"
               onClick={() => setShowInfo(false)}
             />
             <ScrollArea

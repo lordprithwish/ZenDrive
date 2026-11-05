@@ -34,7 +34,10 @@ function PopoverContent({
         <PopoverPrimitive.Popup
           data-slot="popover-content"
           className={cn(
-            "bg-popover text-popover-foreground data-ending-style:opacity-0 data-starting-style:opacity-0 w-72 rounded-md border p-3 shadow-md outline-none transition-opacity",
+            "bg-popover text-popover-foreground w-72 rounded-xl border p-3 shadow-xl shadow-black/10 outline-none dark:shadow-black/40",
+            // Grows out of whatever opened it (Base UI sets the origin to the
+            // trigger's side), and shrinks back a little faster.
+            "origin-(--transform-origin) transition-[opacity,scale] duration-150 ease-out-soft data-starting-style:scale-96 data-starting-style:opacity-0 data-ending-style:scale-98 data-ending-style:opacity-0 data-ending-style:duration-100",
             className
           )}
           {...props}

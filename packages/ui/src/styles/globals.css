@@ -53,6 +53,9 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
   --font-serif: "Roboto Slab Variable", serif;
+  /* Overlays arrive on this: quick off the mark, long gentle settle. Leaving
+     uses plain ease-in and a shorter duration, so closing never feels slow. */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Theme tokens. Dark is the designed palette; light mirrors it (dark's text
@@ -158,7 +161,9 @@
   [data-slot="dialog-overlay"],
   [data-slot="dialog-content"],
   [data-slot="sheet-content"],
-  [data-slot="popover-content"] {
+  [data-slot="popover-content"],
+  [data-slot="dropdown-menu-content"],
+  [data-slot="select-content"] {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }

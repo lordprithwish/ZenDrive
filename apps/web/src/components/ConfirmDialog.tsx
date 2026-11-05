@@ -1,3 +1,4 @@
+import { WarningIcon } from "@phosphor-icons/react"
 import { Button } from "@workspace/ui/components/button"
 import { Modal } from "@/components/Modal"
 import { useConfirm } from "@/store/confirm"
@@ -12,6 +13,7 @@ export function ConfirmDialog() {
       onClose={() => close(false)}
       size="sm"
       showCloseButton={false}
+      icon={pending?.destructive && <WarningIcon size={18} weight="fill" className="text-destructive" />}
       title={pending?.title}
       description={pending?.description}
       footer={

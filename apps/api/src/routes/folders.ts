@@ -488,7 +488,9 @@ foldersRouter.get("/tree/me", async (req, res) => {
   const rootId = await assertUserRootFolderId(user)
   const mine = await prisma.folder.findMany({
     where: { ownerId: user.id, spaceId: null, isTrashed: false },
-    select: { id: true, name: true, parentId: true },
+    // Starred and colour: the move picker offers starred folders as shortcuts
+    // and draws each folder the colour it has in the drive.
+    select: { id: true, name: true, parentId: true, isStarred: true, color: true },
   })
 
   // Only the drive tree, and "Synced Folders" beside it: a root of its own,

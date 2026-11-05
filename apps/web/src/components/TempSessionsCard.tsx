@@ -229,7 +229,15 @@ export function TempSessionsCard() {
 // toqr returns a flat n×n grid of 0/1 modules; each dark one is a 1×1 square
 // in a single path. The 4-module white border is the quiet zone scanners
 // need, and stays white in dark mode so phones can still read it.
-function QrCode({ value, className }: { value: string; className?: string }) {
+export function QrCode({
+  value,
+  className,
+  label = "QR code of the sign-in link",
+}: {
+  value: string
+  className?: string
+  label?: string
+}) {
   const { n, d } = useMemo(() => {
     const m = toQR(value)
     const n = Math.sqrt(m.length)
@@ -244,7 +252,7 @@ function QrCode({ value, className }: { value: string; className?: string }) {
       viewBox={`-4 -4 ${n + 8} ${n + 8}`}
       shapeRendering="crispEdges"
       role="img"
-      aria-label="QR code of the sign-in link"
+      aria-label={label}
       className={className}
     >
       <rect x={-4} y={-4} width={n + 8} height={n + 8} fill="#fff" />

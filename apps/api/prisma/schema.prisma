@@ -497,6 +497,9 @@ model Share {
   createdBy    User              @relation(fields: [createdById], references: [id], onDelete: Cascade)
   expiresAt    DateTime?
   passwordHash String?
+  // A folder link: whether it opens the folders inside it too, or only the
+  // files right in it. Off by default, which is what links made before it were.
+  includeSubfolders Boolean       @default(false)
   createdAt    DateTime          @default(now())
 
   @@index([createdById])

@@ -29,7 +29,9 @@ function DialogOverlay({
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-50 bg-black/80 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        // Dims the page rather than blacking it out: you can still tell
+        // where you are behind the dialog.
+        "fixed inset-0 isolate z-50 bg-black/40 duration-200 supports-backdrop-filter:backdrop-blur-[3px] data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 data-closed:duration-150 dark:bg-black/60",
         className
       )}
       {...props}
@@ -53,7 +55,12 @@ function DialogContent({
         className={cn(
           // Both caps keep a 1rem gutter to the window on every side; dvh so a
           // phone's URL bar or a short, split window never hides the footer.
-          "fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-md max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 overflow-y-auto rounded-4xl bg-popover p-6 text-sm text-popover-foreground ring-1 ring-foreground/5 duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-md max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 overflow-y-auto rounded-4xl bg-popover p-6 text-sm text-popover-foreground outline-none",
+          // Lifted off the page: a hairline edge, a faintly lit top edge and
+          // a long soft shadow below.
+          "shadow-[inset_0_1px_0_0_rgb(255_255_255/0.05),0_24px_64px_-16px_rgb(0_0_0/0.45)] ring-1 ring-black/5 dark:ring-white/8",
+          // Rises a few pixels into place; leaves faster than it came.
+          "duration-250 ease-out-soft data-open:animate-in data-open:fade-in-0 data-open:zoom-in-97 data-open:slide-in-from-bottom-2 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-98 data-closed:duration-150 data-closed:ease-in",
           className
         )}
         {...props}

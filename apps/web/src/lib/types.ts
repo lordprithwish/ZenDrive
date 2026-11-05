@@ -486,6 +486,9 @@ export type Share = {
   folderId?: string | null
   expiresAt?: string | null
   createdAt: string
+  hasPassword?: boolean
+  /** A folder link that opens the folders inside it too. */
+  includeSubfolders?: boolean
 }
 
 export type SpaceInvite = {

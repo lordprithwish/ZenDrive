@@ -21,6 +21,7 @@ sharesRouter.post("/", requireAuth, denyTempSession, async (req, res) => {
       permission: z.enum(["VIEW", "EDIT"]).default("VIEW"),
       expiresAt: z.string().datetime().optional(),
       password: z.string().min(4).optional(),
+      includeSubfolders: z.boolean().optional(),
     })
     .parse(req.body)
 
@@ -41,6 +42,7 @@ sharesRouter.post("/", requireAuth, denyTempSession, async (req, res) => {
       createdById: user.id,
       expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
       passwordHash: body.password ? await bcrypt.hash(body.password, 10) : null,
+      includeSubfolders: body.resourceType === "FOLDER" && !!body.includeSubfolders,
     },
   })
   await logActivity({
@@ -64,7 +66,8 @@ sharesRouter.get("/for/:type/:id", requireAuth, async (req, res) => {
       ...(type === "FILE" ? { fileId: req.params.id } : { folderId: req.params.id }),
     },
   })
-  res.json({ shares: list })
+  // Whether a link has a password, never the hash itself.
+  res.json({ shares: list.map(({ passwordHash, ...s }) => ({ ...s, hasPassword: !!passwordHash })) })
 })
 
 sharesRouter.delete("/:id", requireAuth, async (req, res) => {
@@ -104,21 +107,38 @@ sharesRouter.post("/resolve/:token", async (req, res) => {
       file: { ...s.file, size: Number(s.file.size) },
     })
   } else if (s.resourceType === "FOLDER" && s.folder) {
+    // `folderId` opens one of the folders under the shared one, which only a
+    // link that includes its subfolders allows.
+    const folderId = z.string().optional().parse(req.body?.folderId)
+    let here = s.folder
+    let path = [{ id: s.folder.id, name: s.folder.name }]
+    if (folderId && folderId !== s.folder.id) {
+      const found = s.includeSubfolders ? await visiblePath(folderId, s.folder.id) : null
+      const folder = found && (await prisma.folder.findUnique({ where: { id: folderId } }))
+      if (!found || !folder) return res.status(404).json({ error: "not_found" })
+      here = folder
+      path = found
+    }
     const [folders, files] = await Promise.all([
-      prisma.folder.findMany({
-        where: { parentId: s.folder.id, isHidden: false, isTrashed: false },
-        orderBy: { name: "asc" },
-      }),
+      s.includeSubfolders
+        ? prisma.folder.findMany({
+            where: { parentId: here.id, ...VISIBLE },
+            orderBy: { name: "asc" },
+            include: { _count: { select: { files: { where: VISIBLE }, children: { where: VISIBLE } } } },
+          })
+        : [],
       prisma.file.findMany({
-        where: { folderId: s.folder.id, isHidden: false, isTrashed: false },
+        where: { folderId: here.id, ...VISIBLE },
         orderBy: { name: "asc" },
       }),
     ])
     res.json({
       type: "FOLDER",
       permission: s.permission,
-      folder: s.folder,
-      folders,
+      includeSubfolders: s.includeSubfolders,
+      folder: here,
+      breadcrumbs: path,
+      folders: folders.map(({ _count, ...f }) => ({ ...f, fileCount: _count.files, folderCount: _count.children })),
       files: files.map((f) => ({ ...f, size: Number(f.size) })),
     })
   } else {
@@ -156,10 +176,15 @@ sharesRouter.get("/:token/download/:fileId?", async (req, res) => {
   const file = await prisma.file.findUnique({ where: { id: fileId } })
   if (!file) return res.status(404).json({ error: "not_found" })
 
-  // if folder share, ensure file is a descendant
+  // A folder link reaches what its page lists: the files right in the folder,
+  // and with its subfolders those below it too, never through a hidden or
+  // binned folder, and never a hidden or binned file.
   if (s.resourceType === "FOLDER" && s.folderId) {
-    if (!(await isFileUnderFolder(file.folderId, s.folderId)))
-      return res.status(403).json({ error: "forbidden" })
+    const reachable =
+      !file.isHidden &&
+      !file.isTrashed &&
+      (file.folderId === s.folderId || (s.includeSubfolders && !!(await visiblePath(file.folderId, s.folderId))))
+    if (!reachable) return res.status(403).json({ error: "forbidden" })
   }
 
   await streamStoredFile(req, res, file, {
@@ -167,15 +192,25 @@ sharesRouter.get("/:token/download/:fileId?", async (req, res) => {
   })
 })
 
-async function isFileUnderFolder(startFolderId: string, rootFolderId: string): Promise<boolean> {
-  let cur: string | null = startFolderId
-  while (cur) {
-    if (cur === rootFolderId) return true
-    const p: { parentId: string | null } | null = await prisma.folder.findUnique({
-      where: { id: cur },
-      select: { parentId: true },
-    })
-    cur = p?.parentId ?? null
+const VISIBLE = { isHidden: false, isTrashed: false }
+
+// The way down from a shared folder to one under it, shared folder first, or
+// null when it isn't under it or the way passes a hidden or binned folder (what
+// the share page never lists). Depth-guarded like the other parent walks.
+async function visiblePath(folderId: string, rootId: string) {
+  const chain: { id: string; name: string }[] = []
+  let cur: string | null = folderId
+  for (let i = 0; cur && i < 64; i++) {
+    const f: { id: string; name: string; parentId: string | null; isHidden: boolean; isTrashed: boolean } | null =
+      await prisma.folder.findUnique({
+        where: { id: cur },
+        select: { id: true, name: true, parentId: true, isHidden: true, isTrashed: true },
+      })
+    if (!f) return null
+    if (f.id === rootId) return [{ id: f.id, name: f.name }, ...chain]
+    if (f.isHidden || f.isTrashed) return null
+    chain.unshift({ id: f.id, name: f.name })
+    cur = f.parentId
   }
-  return false
+  return null
 }

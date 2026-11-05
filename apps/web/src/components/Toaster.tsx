@@ -37,7 +37,7 @@ export function Toaster() {
         <div
           key={t.id}
           role="status"
-          className="bg-card animate-in slide-in-from-right-4 fade-in pointer-events-auto flex items-start gap-2 rounded-xl border p-3 shadow-lg duration-150"
+          className="bg-card animate-in slide-in-from-right-4 fade-in ease-out-soft pointer-events-auto flex items-start gap-2 rounded-xl border p-3 shadow-xl shadow-black/10 duration-300 motion-reduce:animate-none dark:shadow-black/40"
         >
           <div className="mt-0.5 shrink-0">{iconFor(t.kind)}</div>
           <div className="min-w-0 flex-1 text-sm">{t.message}</div>
